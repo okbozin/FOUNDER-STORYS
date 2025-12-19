@@ -70,3 +70,18 @@ export interface SoundEffect {
   icon: string; 
   color: string;
 }
+
+export interface VideoClip {
+  id: string;
+  label: string;
+  duration: string;
+  thumbnail: string;
+  url: string;
+  type: 'intro' | 'outro' | 'clip';
+}
+
+export interface BackgroundAsset {
+  id: string;
+  label: string;
+  thumbnail: string;
+}

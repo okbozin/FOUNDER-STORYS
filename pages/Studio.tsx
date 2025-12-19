@@ -6,9 +6,10 @@ import {
   Image as ImageIcon, Type, MousePointer2, X, CircleCheck, GripVertical,
   Sidebar, Maximize, Grid3x3, RectangleHorizontal, Play, Plus, Trash2,
   MoreVertical, ChevronDown, Copy, Link as LinkIcon, Facebook, Youtube, Twitch, Linkedin,
-  FileAudio, FileVideo, Check, Globe, Radio, Lock, CreditCard, TriangleAlert, Clock
+  FileAudio, FileVideo, Check, Globe, Radio, Lock, CreditCard, TriangleAlert, Clock,
+  Film, Sparkles, HelpCircle, FileText, Camera
 } from 'lucide-react';
-import { SOUND_EFFECTS } from '../constants';
+import { SOUND_EFFECTS, VIDEO_CLIPS, BACKGROUNDS } from '../constants';
 import { useData } from '../context/DataContext';
 
 // --- Types ---
@@ -73,14 +74,12 @@ const MOCK_GUESTS: Participant[] = [
 
 // --- Helpers ---
 
-// Fix for: Error in file pages/Studio.tsx on line 640: Cannot find name 'formatTime'.
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-// Fix for: Error in file pages/Studio.tsx on line 676: Cannot find name 'getGridClass'.
 const getGridClass = (count: number) => {
   if (count <= 1) return 'grid-cols-1';
   if (count <= 2) return 'grid-cols-2';
@@ -505,6 +504,29 @@ const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; settings: 
   )
 }
 
+const SourcesMenu: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="absolute bottom-full left-0 mb-4 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-2 z-50">
+       <div className="p-2 space-y-1">
+          <SourceItem icon={<FileText size={18}/>} label="Slides and PDFs" />
+          <SourceItem icon={<Camera size={18}/>} label="Extra camera" />
+          <SourceItem icon={<FileVideo size={18}/>} label="Video file" />
+          <SourceItem icon={<ImageIcon size={18}/>} label="Image file" />
+          <div className="h-px bg-slate-100 my-1" />
+          <SourceItem icon={<MonitorUp size={18}/>} label="Share screen" />
+       </div>
+    </div>
+  );
+};
+
+const SourceItem: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left text-sm font-bold text-slate-700">
+     <div className="text-slate-400">{icon}</div>
+     {label}
+  </button>
+);
+
 // --- Main Component ---
 
 const Studio: React.FC = () => {
@@ -547,12 +569,15 @@ const Studio: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showSourcesMenu, setShowSourcesMenu] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'chat' | 'brand' | 'banners' | 'media'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'brand' | 'banners' | 'media' | 'background'>('chat');
   const [brandColor, setBrandColor] = useState('#ef4444');
   const [brandTheme, setBrandTheme] = useState<'minimal' | 'bold' | 'bubble' | 'classic'>('minimal');
   const [logo, setLogo] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<string | null>(null);
+  const [virtualBackground, setVirtualBackground] = useState<string | null>(null);
+  const [loopClips, setLoopClips] = useState(false);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
       { id: '1', sender: 'Producer', text: 'Ready for broadcast. Audio levels look great.', time: '10:00 AM', avatarColor: 'bg-slate-900' }
@@ -560,7 +585,6 @@ const Studio: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [bannerInput, setBannerInput] = useState('');
 
-  // Fix for: Error in file pages/Studio.tsx on line 745: Cannot find name 'toggleStage'.
   const toggleStage = (id: string) => {
     setParticipants(prev => prev.map(p => p.id === id ? { ...p, isOnStage: !p.isOnStage } : p));
   };
@@ -628,7 +652,6 @@ const Studio: React.FC = () => {
   const localParticipant = participants.find(p => p.isLocal);
   const activeDestinations = settings.destinations.filter(d => d.enabled);
   const sortedActiveParticipants = [...activeParticipants].sort((a, b) => a.type === 'screen' ? -1 : 1);
-  const timeProgress = Math.min((timer / appSettings.maxLiveDuration) * 100, 100);
 
   return (
     <div className="h-[calc(100vh-64px)] bg-[#f1f5f9] text-slate-900 flex overflow-hidden font-sans">
@@ -680,45 +703,54 @@ const Studio: React.FC = () => {
           </div>
         </div>
 
-        {/* Studio Stage Canvas - Main Area Stays Dark for Video Clarity */}
+        {/* Studio Stage Canvas */}
         <div className="flex-grow bg-slate-100 p-8 flex flex-col items-center justify-center relative overflow-hidden">
-            <div className={`relative w-full h-full max-h-[80vh] aspect-video transition-all duration-300 group bg-slate-950 rounded-[48px] shadow-2xl p-4 border-[16px] border-white`}>
-                {logo && <img src={logo} alt="Logo" className="absolute top-8 right-8 w-24 z-20 drop-shadow-2xl" />}
-                
-                {activeParticipants.length === 0 ? (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-[32px] bg-slate-900/20">
-                     <div className="text-center">
-                        <div className="w-24 h-24 bg-white/5 rounded-[32px] flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-2xl">
-                          <MonitorUp className="text-slate-400" size={40} />
-                        </div>
-                        <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">The Loft is Empty</h3>
-                        <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-2">Add your feed to the stage below.</p>
-                     </div>
-                  </div>
-                ) : (
-                  <div className={`w-full h-full rounded-[32px] overflow-hidden ${activeLayout === 'sidebar' ? 'flex gap-4' : `grid gap-4 ${getGridClass(activeParticipants.length)}`}`}>
-                    {activeLayout === 'sidebar' ? (
-                        <>
-                           <div className="flex-[3] relative rounded-3xl overflow-hidden shadow-2xl border border-white/10">
-                              <ParticipantFrame participant={sortedActiveParticipants[0]} showName={settings.showNames} brandColor={brandColor} theme={brandTheme} mirrorLocal={settings.mirrorVideo} />
-                           </div>
-                           <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
-                              {sortedActiveParticipants.slice(1).map(p => (
-                                <div key={p.id} className="relative aspect-video rounded-2xl overflow-hidden border border-white/10 flex-shrink-0 shadow-lg">
-                                   <ParticipantFrame participant={p} showName={settings.showNames} brandColor={brandColor} theme={brandTheme} mirrorLocal={settings.mirrorVideo} small />
-                                </div>
-                              ))}
-                           </div>
-                        </>
-                    ) : (
-                      activeParticipants.map(p => (
-                        <div key={p.id} className="relative rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
-                           <ParticipantFrame participant={p} showName={settings.showNames} brandColor={brandColor} theme={brandTheme} mirrorLocal={settings.mirrorVideo} />
-                        </div>
-                      ))
-                    )}
+            <div className={`relative w-full h-full max-h-[80vh] aspect-video transition-all duration-300 group bg-slate-950 rounded-[48px] shadow-2xl p-4 border-[16px] border-white overflow-hidden`}>
+                {/* Virtual Background Layer */}
+                {virtualBackground && (
+                  <div className="absolute inset-0 z-0 opacity-40">
+                    <img src={virtualBackground} className="w-full h-full object-cover" alt="Background" />
                   </div>
                 )}
+                
+                {logo && <img src={logo} alt="Logo" className="absolute top-8 right-8 w-24 z-20 drop-shadow-2xl" />}
+                
+                <div className="relative z-10 w-full h-full">
+                  {activeParticipants.length === 0 ? (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-[32px] bg-slate-900/20">
+                      <div className="text-center">
+                          <div className="w-24 h-24 bg-white/5 rounded-[32px] flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-2xl">
+                            <MonitorUp className="text-slate-400" size={40} />
+                          </div>
+                          <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">The Loft is Empty</h3>
+                          <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-2">Add your feed to the stage below.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`w-full h-full rounded-[32px] overflow-hidden ${activeLayout === 'sidebar' ? 'flex gap-4' : `grid gap-4 ${getGridClass(activeParticipants.length)}`}`}>
+                      {activeLayout === 'sidebar' ? (
+                          <>
+                            <div className="flex-[3] relative rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+                                <ParticipantFrame participant={sortedActiveParticipants[0]} showName={settings.showNames} brandColor={brandColor} theme={brandTheme} mirrorLocal={settings.mirrorVideo} />
+                            </div>
+                            <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
+                                {sortedActiveParticipants.slice(1).map(p => (
+                                  <div key={p.id} className="relative aspect-video rounded-2xl overflow-hidden border border-white/10 flex-shrink-0 shadow-lg">
+                                    <ParticipantFrame participant={p} showName={settings.showNames} brandColor={brandColor} theme={brandTheme} mirrorLocal={settings.mirrorVideo} small />
+                                  </div>
+                                ))}
+                            </div>
+                          </>
+                      ) : (
+                        activeParticipants.map(p => (
+                          <div key={p.id} className="relative rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
+                            <ParticipantFrame participant={p} showName={settings.showNames} brandColor={brandColor} theme={brandTheme} mirrorLocal={settings.mirrorVideo} />
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {activeBanner && (
                     <div className="absolute bottom-12 left-0 right-0 z-30 px-12 flex justify-center pointer-events-none">
@@ -748,12 +780,18 @@ const Studio: React.FC = () => {
 
         {/* --- DOCK / GREEN ROOM --- */}
         <div className="h-40 bg-white border-t border-slate-200 flex items-center px-8 gap-6 overflow-x-auto relative z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
-            <button onClick={() => setShowInviteModal(true)} className="flex-shrink-0 w-44 h-28 border-4 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-slate-300 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all group">
-               <div className="p-3 rounded-2xl bg-slate-50 group-hover:bg-blue-100 mb-2 transition-colors">
-                 <Plus size={24} />
-               </div>
-               <p className="text-[10px] font-black uppercase tracking-widest">Add Guest</p>
-            </button>
+            <div className="relative">
+              <SourcesMenu isOpen={showSourcesMenu} onClose={() => setShowSourcesMenu(false)} />
+              <button 
+                onClick={() => setShowSourcesMenu(!showSourcesMenu)}
+                className="flex-shrink-0 w-44 h-28 border-4 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-slate-300 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all group"
+              >
+                <div className="p-3 rounded-2xl bg-slate-50 group-hover:bg-blue-100 mb-2 transition-colors">
+                  <Plus size={24} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest">Add Source</p>
+              </button>
+            </div>
 
             {participants.map(p => (
               <div key={p.id} className={`group relative flex-shrink-0 w-44 h-28 rounded-3xl overflow-hidden border-4 transition-all shadow-sm ${p.isOnStage ? 'border-blue-600 ring-8 ring-blue-50' : 'border-slate-50 opacity-60 hover:opacity-100 hover:border-slate-200'}`}>
@@ -778,7 +816,7 @@ const Studio: React.FC = () => {
              <ToolBtn icon={localParticipant?.muted ? <MicOff size={24}/> : <Mic size={24}/>} label={localParticipant?.muted ? "Unmute" : "Mute"} active={!localParticipant?.muted} onClick={() => setParticipants(prev => prev.map(p => p.isLocal ? {...p, muted: !p.muted} : p))} />
              <ToolBtn icon={localParticipant?.videoOff ? <VideoOff size={24}/> : <VideoIcon size={24}/>} label={localParticipant?.videoOff ? "Start Cam" : "Stop Cam"} active={!localParticipant?.videoOff} onClick={() => setParticipants(prev => prev.map(p => p.isLocal ? {...p, videoOff: !p.videoOff} : p))} />
              <div className="w-px h-12 bg-slate-200 mx-2"></div>
-             <ToolBtn icon={<MonitorUp size={24}/>} label="Screen" onClick={() => {}} />
+             <ToolBtn icon={<MonitorUp size={24}/>} label="Share" onClick={() => setShowSourcesMenu(!showSourcesMenu)} />
              <ToolBtn icon={<Users size={24}/>} label="Guest" onClick={() => setShowInviteModal(true)} />
              <div className="w-px h-12 bg-slate-200 mx-2"></div>
              <ToolBtn icon={<Settings size={24}/>} label="Settings" onClick={() => setShowSettings(true)} />
@@ -787,14 +825,15 @@ const Studio: React.FC = () => {
 
       {/* ================= RIGHT SECTION: PRODUCTION SIDEBAR ================= */}
       <div className="w-96 bg-white border-l border-slate-200 flex flex-col z-20 shadow-2xl">
-          <div className="flex border-b border-slate-200 bg-slate-50/50 p-2 gap-1">
-             <TabBtn label="Brand" active={activeTab === 'brand'} onClick={() => setActiveTab('brand')} icon={<Palette size={16}/>} />
-             <TabBtn label="Chat" active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} icon={<MessageSquare size={16}/>} />
-             <TabBtn label="Grafx" active={activeTab === 'banners'} onClick={() => setActiveTab('banners')} icon={<Type size={16}/>} />
-             <TabBtn label="Sound" active={activeTab === 'media'} onClick={() => setActiveTab('media')} icon={<ImageIcon size={16}/>} />
+          <div className="grid grid-cols-5 border-b border-slate-200 bg-slate-50/50 p-2 gap-1">
+             <TabBtn label="Brand" active={activeTab === 'brand'} onClick={() => setActiveTab('brand')} icon={<Palette size={14}/>} />
+             <TabBtn label="Clips" active={activeTab === 'media'} onClick={() => setActiveTab('media')} icon={<Film size={14}/>} />
+             <TabBtn label="BG" active={activeTab === 'background'} onClick={() => setActiveTab('background')} icon={<ImageIcon size={14}/>} />
+             <TabBtn label="Grafx" active={activeTab === 'banners'} onClick={() => setActiveTab('banners')} icon={<Type size={14}/>} />
+             <TabBtn label="Chat" active={activeTab === 'chat'} onClick={() => setActiveTab('chat')} icon={<MessageSquare size={14}/>} />
           </div>
 
-          <div className="flex-grow overflow-y-auto p-8 custom-scrollbar">
+          <div className="flex-grow overflow-y-auto p-6 custom-scrollbar">
               {activeTab === 'brand' && (
                 <div className="space-y-10 animate-in slide-in-from-right-4">
                     <div>
@@ -816,6 +855,115 @@ const Studio: React.FC = () => {
                          ))}
                       </div>
                     </div>
+                    <div>
+                       <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Audio Mix</h3>
+                       <div className="space-y-4">
+                          {SOUND_EFFECTS.map(effect => (
+                            <button key={effect.id} className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-500 transition-all group">
+                               <span className="text-sm font-bold text-slate-700">{effect.label}</span>
+                               <Play size={16} className="text-slate-300 group-hover:text-blue-500" />
+                            </button>
+                          ))}
+                       </div>
+                    </div>
+                </div>
+              )}
+
+              {activeTab === 'media' && (
+                <div className="space-y-8 animate-in slide-in-from-right-4">
+                   <div className="flex items-center gap-2 mb-4">
+                      <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Video clips</h3>
+                      <HelpCircle size={16} className="text-blue-600" />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-3 mb-6">
+                      <button className="relative aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-white transition-all group">
+                         <div className="absolute top-0 right-0">
+                           <div className="bg-yellow-400 p-1.5 rounded-bl-xl shadow-md"><Sparkles size={14} className="text-white fill-white"/></div>
+                         </div>
+                         <Plus size={20} className="text-slate-400 group-hover:text-blue-500" />
+                         <span className="text-[10px] font-bold text-slate-500">Intro video</span>
+                      </button>
+                      <button className="relative aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-white transition-all group">
+                         <div className="absolute top-0 right-0">
+                           <div className="bg-yellow-400 p-1.5 rounded-bl-xl shadow-md"><Sparkles size={14} className="text-white fill-white"/></div>
+                         </div>
+                         <Plus size={20} className="text-slate-400 group-hover:text-blue-500" />
+                         <span className="text-[10px] font-bold text-slate-500">Outro video</span>
+                      </button>
+                   </div>
+
+                   <div className="flex items-center gap-3 mb-6">
+                      <input type="checkbox" id="loop" checked={loopClips} onChange={() => setLoopClips(!loopClips)} className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                      <label htmlFor="loop" className="text-sm font-bold text-slate-700 flex items-center gap-2">Loop <HelpCircle size={14} className="text-slate-400"/></label>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      {VIDEO_CLIPS.map(clip => (
+                        <div key={clip.id} className="space-y-1 group">
+                           <div className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
+                              <img src={clip.thumbnail} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all" alt={clip.label} />
+                              <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 rounded text-[9px] font-black text-white">{clip.duration}</div>
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <Play size={24} fill="white" className="text-white" />
+                              </div>
+                           </div>
+                           <p className="text-[10px] font-bold text-slate-600 truncate px-1">{clip.label}</p>
+                        </div>
+                      ))}
+                      <button className="relative aspect-video rounded-xl border-2 border-slate-100 bg-white flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm group">
+                         <div className="absolute top-0 right-0">
+                           <div className="bg-yellow-400 p-1.5 rounded-bl-xl shadow-md"><Sparkles size={14} className="text-white fill-white"/></div>
+                         </div>
+                         <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors">
+                           <Plus size={20} className="text-slate-400" />
+                         </div>
+                         <span className="text-xs font-bold text-slate-600">More</span>
+                      </button>
+                   </div>
+                </div>
+              )}
+
+              {activeTab === 'background' && (
+                <div className="space-y-8 animate-in slide-in-from-right-4">
+                   <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter flex items-center gap-2">Background <HelpCircle size={16} className="text-slate-400" /></h3>
+                   </div>
+
+                   <button className="w-full py-4 bg-white border-2 border-purple-200 rounded-2xl flex items-center justify-center gap-3 hover:bg-purple-50 transition-all shadow-lg shadow-purple-200/20 group relative overflow-hidden">
+                      <div className="absolute top-0 right-0">
+                        <div className="bg-yellow-400 p-1.5 rounded-bl-xl shadow-md"><Sparkles size={14} className="text-white fill-white"/></div>
+                      </div>
+                      <Zap size={20} className="text-purple-600 fill-purple-600" />
+                      <span className="text-sm font-black text-purple-900 uppercase tracking-widest">AI Generate</span>
+                   </button>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => setVirtualBackground(null)}
+                        className={`aspect-video rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${!virtualBackground ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white'}`}
+                      >
+                         <Camera size={20} className="text-slate-300" />
+                         <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">None</span>
+                      </button>
+                      {BACKGROUNDS.map(bg => (
+                        <div key={bg.id} className="space-y-1 group">
+                           <div 
+                             onClick={() => setVirtualBackground(bg.thumbnail)}
+                             className={`relative aspect-video rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${virtualBackground === bg.thumbnail ? 'border-blue-500 ring-4 ring-blue-50 shadow-xl' : 'border-slate-100 hover:border-slate-300 shadow-sm'}`}
+                           >
+                              <img src={bg.thumbnail} className="w-full h-full object-cover" alt={bg.label} />
+                           </div>
+                           <p className="text-[10px] font-bold text-slate-600 truncate px-1">{bg.label}</p>
+                        </div>
+                      ))}
+                      <button className="aspect-video rounded-xl border-2 border-slate-100 bg-white flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm group">
+                         <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors">
+                           <Plus size={20} className="text-slate-400" />
+                         </div>
+                         <span className="text-xs font-bold text-slate-600">More</span>
+                      </button>
+                   </div>
                 </div>
               )}
 
@@ -872,7 +1020,7 @@ const Studio: React.FC = () => {
   );
 };
 
-// --- Sub-components ---
+// ... existing sub-components ...
 
 const ParticipantFrame: React.FC<{ participant: Participant, showName: boolean, brandColor: string, theme: string, small?: boolean, mirrorLocal?: boolean }> = ({ participant, showName, brandColor, theme, small, mirrorLocal }) => (
   <>
@@ -905,8 +1053,8 @@ const LayoutBtn: React.FC<{ icon: React.ReactNode, label: string, active: boolea
 );
 
 const TabBtn: React.FC<{ label: string, active: boolean, onClick: () => void, icon: React.ReactNode }> = ({ label, active, onClick, icon }) => (
-  <button onClick={onClick} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-3 rounded-2xl transition-all ${active ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}>
-    {icon} {label}
+  <button onClick={onClick} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-[0.15em] flex flex-col items-center justify-center gap-1 rounded-xl transition-all ${active ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}>
+    {icon} <span>{label}</span>
   </button>
 );
 
