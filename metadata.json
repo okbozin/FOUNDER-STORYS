@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Founder Storys 1.2",
+  "description": "A premium live video interview & podcast platform for founders to tell their stories.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
